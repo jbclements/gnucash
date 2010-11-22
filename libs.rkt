@@ -132,6 +132,13 @@
   (>>> (not (prefix? `(a b) `(a c))))
   (>>> (prefix? `(a b c) `(a b c d))))
   
+  
+  ;; returns all the splits of the transaction
+  (define (all-splits transaction)
+    (let* ([splits (sxml:content (transaction-splits transaction))]
+           [date (transaction-date transaction)])
+      (map (lambda (split) (list (date->time-utc date) split)) splits)))
+  
 
   
   
@@ -187,13 +194,20 @@
 
   ;; ********
   
+   
   (define (jan-one year) (srfi:make-date 0 0 0 0 1 1 year 0))
+  (define (feb-one year) (srfi:make-date 0 0 0 0 1 2 year 0))
+  (define (mar-one year) (srfi:make-date 0 0 0 0 1 3 year 0))
   (define (apr-one year) (srfi:make-date 0 0 0 0 1 4 year 0))
+  (define (may-one year) (srfi:make-date 0 0 0 0 1 5 year 0))
+  (define (jun-one year) (srfi:make-date 0 0 0 0 1 6 year 0))
   (define (jul-one year) (srfi:make-date 0 0 0 0 1 7 year 0))
+  (define (aug-one year) (srfi:make-date 0 0 0 0 1 8 year 0))
+  (define (sep-one year) (srfi:make-date 0 0 0 0 1 9 year 0))
   (define (oct-one year) (srfi:make-date 0 0 0 0 1 10 year 0))
+  (define (nov-one year) (srfi:make-date 0 0 0 0 1 11 year 0))
+  (define (dec-one year) (srfi:make-date 0 0 0 0 1 12 year 0))
 
-  
-  
     
   (define (group-by-account date-and-splits)
     (let* ([ht (make-hash)])
@@ -216,6 +230,11 @@
                                                crossers))])
       (group-by-account external-motion)))
   
+  (define (transactions-in-range s e)
+    (filter (make-date-filter s e) transactions))
+   
+
+
   (define (pair-up a b)
     (let ([ht (make-hash)])
       (for-each (match-lambda [(list k v) (hash-set! ht k (list v))]) a)
