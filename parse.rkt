@@ -1,9 +1,8 @@
 #lang racket
   
-(require (only-in (planet lizorkin/ssax:2/ssax) ssax:xml->sxml)
-         "shelly.rkt")
-  
-  (provide (all-defined-out))
+(require (only-in (planet clements/sxml2) ssax:xml->sxml))
+
+(provide (all-defined-out))
   
   ;; WARNING: assumes a unix-y path convention.  Fix this if you like.
   
@@ -47,6 +46,13 @@
                  (file-or-directory-modify-seconds gnucash-file)))
       (cache-as-zo gnucash-file gnucash-cache-file))
     (strip-top-level-goo (read-from-zo gnucash-cache-file)))
+  
+  
+  ;; evaluate a shell command
+  (define (sys2 . a) 
+    (define line (apply string-append a))
+    (printf "~s\n" line)
+    (system line))
  
 
 

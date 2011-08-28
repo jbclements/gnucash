@@ -7,7 +7,7 @@
 @author[(author+email "John Clements" "clements@racket-lang.org")]
 
 @(require (for-label racket)
-          (for-label (planet clements/gnucash)))
+          #;(for-label (planet clements/gnucash)))
 
 @defmodule[(planet clements/gnucash)] {This collection is intended to allow you to use MzScheme/DrScheme to operate on
 gnucash files.  It's flimsy but effective for me. It's intended for Scheme
@@ -20,8 +20,7 @@ me know if you improve it.}
 
 The following is an unconverted doc.txt file.
 
-
-How to Use It:
+@section{How To Use It}
 
 The very simplest way to see how it works is to take a look at the examples
 directory: it contains a simple example gnucash file, and a simple scheme file
@@ -29,16 +28,16 @@ with plenty of comments that opens the gnucash file and pulls out a few of the
 transactions in the file.  If you still have questions, come back and read this
 file.
 
-How to Use It (part II):
+@section{How to Use It (part II):}
 
 The library consists of two files.  One reads in the data (parse.ss), and one
 has some utility functions for handling it.
 
-Parse.ss:
+Parse.rkt:
 
 Here's how to require it:
 
-(require (planet "parse.ss" ("clements" "gnucash.plt" 1)))
+(require (planet "parse.rkt" ("clements" "gnucash.plt" 1)))
 
 > (gnucash-read gnucash-file gnucash-zo-file)
 
@@ -52,7 +51,7 @@ of a cache file.
 If the source file is newer than the zo file, it goes and recompiles the darn
 thing.
 
-You probably won't need to call any other functions in parse.ss
+You probably won't need to call any other functions in parse.rkt.
 
 A Note On Representations:
 
@@ -63,11 +62,11 @@ that you will curse and scream at a bunch of errors that would be caught by any
 kind of type system or use of structures, e.g. using an account instead of an
 account id, etc.
 
-Libs.ss:
+Libs.rkt:
 
 Here's how to require it:
 
-(require (planet "libs.ss" ("clements" "gnucash.plt" 1)))
+(require (planet "libs.rkt" ("clements" "gnucash.plt" 1)))
 
 
 Ooh, this one is yucky. If I had more time to spend on this, I would make this
@@ -82,7 +81,7 @@ Call this function with the result of gnucash-read, to mutate a bunch of lib's
 internal variables.  Is this gross?  Yes, it's gross.
 
 I'm not even going to try to document a significant subset of the functions in
-lib.ss; they're mostly like this one:
+lib.rkt; they're mostly like this one:
 
 > (transaction-splits t)
 
@@ -111,17 +110,17 @@ between these two.  This is what "crossers" is for.
 Please do note that the "account-ids" is a list of ids (that is, strings), and
 not accounts.  The example file shows this happening.
 
-Example.ss:
+Example.rkt:
 
 Just to save you time bouncing around, I'll include the content of the
-"example.ss" file here.  Naturally, the danger here is that this might get out
+"example.rkt" file here.  Naturally, the danger here is that this might get out
 of sync; nevertheless, I'll leave it here to save navigating your planet cache:
 
 (module example mzscheme
 
   ;; replace these with PLaneT requires if you use this as a template somewhere else:
-  (require "../libs.ss"
-           "../parse.ss")
+  (require "../libs.rkt"
+           "../parse.rkt")
 
   ;; I don't know how to find the current path effectively... so I'll just assume that you started Dr/Mz in the
   ;; examples path.

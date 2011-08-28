@@ -1,6 +1,6 @@
 #lang racket
   
-  (require (planet lizorkin/sxml:2)
+  (require (planet clements/sxml2)
            (lib "time.ss" "srfi" "19")
            (planet dherman/memoize))
   
