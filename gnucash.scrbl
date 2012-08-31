@@ -1,19 +1,20 @@
 #lang scribble/doc
 
-@(require scribble/manual)
+@(require scribble/manual
+          planet/scribble)
 
 @title{@bold{Gnucash}: Some gnucash-parsing utilities}
 
 @author[(author+email "John Clements" "clements@racket-lang.org")]
 
 @(require (for-label racket)
-          #;(for-label (planet clements/gnucash)))
+          (for-label (this-package-in main)))
 
-@defmodule[(planet clements/gnucash)] {This collection is intended to allow you to use MzScheme/DrScheme to operate on
-gnucash files.  It's flimsy but effective for me. It's intended for Scheme
+@defmodule/this-package[main]{This collection is intended to allow you to use Racket/DrRacket to operate on
+gnucash files.  It's flimsy but effective for me. It's intended for Racket
 hackers, and is underdocumented, under-test-cased, and under-error-checking-ed.
 For heaven's sake don't try using this stuff unless you've already written a
-bunch of Scheme code.
+bunch of Racket code.
 
 Olin Shivers talks about 80% solutions; I would call this a 60% solution.  Let
 me know if you improve it.}
@@ -23,24 +24,20 @@ The following is an unconverted doc.txt file.
 @section{How To Use It}
 
 The very simplest way to see how it works is to take a look at the examples
-directory: it contains a simple example gnucash file, and a simple scheme file
+directory: it contains a simple example gnucash file, and a simple racket file
 with plenty of comments that opens the gnucash file and pulls out a few of the
 transactions in the file.  If you still have questions, come back and read this
 file.
 
 @section{How to Use It (part II):}
 
-The library consists of two files.  One reads in the data (parse.ss), and one
+The library consists of two files.  One reads in the data (parse.rkt), and one
 has some utility functions for handling it.
 
-Parse.rkt:
+@defmodule/this-package[parse]
 
-Here's how to require it:
-
-(require (planet "parse.rkt" ("clements" "gnucash.plt" 1)))
-
-> (gnucash-read gnucash-file gnucash-zo-file)
-
+@defproc[(gnucash-read (gnucash-file path-string?) (gnucash-zo-file path-string?))
+   true]{
 The reader does a funny thing: since XML reading is so appallingly slow, it
 makes a .zo file that contains the compiled representation of the input file.
 Building this thing is horrifically slow, taking about 3 minutes to process my
@@ -49,37 +46,31 @@ hidden from you, except that when you call the reader you must supply the name
 of a cache file.
 
 If the source file is newer than the zo file, it goes and recompiles the darn
-thing.
+thing.}
 
 You probably won't need to call any other functions in parse.rkt.
 
 A Note On Representations:
 
-Darn near everything in this library is represented using plain-old scheme
+Darn near everything in this library is represented using plain-old racket
 lists, and more specifically SXML representations.  The up side of this is that
 you can "display" nearly everything transparently.  The down side of this is
 that you will curse and scream at a bunch of errors that would be caught by any
 kind of type system or use of structures, e.g. using an account instead of an
 account id, etc.
 
-Libs.rkt:
-
-Here's how to require it:
-
-(require (planet "libs.rkt" ("clements" "gnucash.plt" 1)))
-
-
+@defmodule/this-package[libs]{
 Ooh, this one is yucky. If I had more time to spend on this, I would make this
 library a unit that imports a set of transactions from another unit.  This is
 because functions like "find-account" need to know about all the accounts in
 the world.  Instead of using units (or parameterizing every call to
-find-account et. al. by a big global table), I have an init function:
+find-account et. al. by a big global table), I have an init function.}
 
-> (init-libs list-of-gnucash-things)
-
-Call this function with the result of gnucash-read, to mutate a bunch of lib's
-internal variables.  Is this gross?  Yes, it's gross.
-
+@defproc[(init-libs (list-of-gnucash-things (listof any/c)))
+ any/c]{
+ Call this function with the result of gnucash-read, to mutate a bunch of lib's
+internal variables.  Is this gross?  Yes, it's gross.}
+ 
 I'm not even going to try to document a significant subset of the functions in
 lib.rkt; they're mostly like this one:
 
@@ -116,13 +107,14 @@ Just to save you time bouncing around, I'll include the content of the
 "example.rkt" file here.  Naturally, the danger here is that this might get out
 of sync; nevertheless, I'll leave it here to save navigating your planet cache:
 
-(module example mzscheme
-
+@codeblock|{
+#lang racket
+  
   ;; replace these with PLaneT requires if you use this as a template somewhere else:
   (require "../libs.rkt"
            "../parse.rkt")
 
-  ;; I don't know how to find the current path effectively... so I'll just assume that you started Dr/Mz in the
+  ;; I don't know how to find the current path effectively... so I'll just assume that you started Racket in the
   ;; examples path.
   (define here-path ".")
 
@@ -155,8 +147,8 @@ of sync; nevertheless, I'll leave it here to save navigating your planet cache:
                  (list (transaction-date t)
                        (net t (list checking-account-id) dollars)))
                my-transactions))
+}|
 
-)
 
 
 
