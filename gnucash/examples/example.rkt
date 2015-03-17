@@ -8,14 +8,7 @@
          "../parse.rkt"
          racket/runtime-path)
 
-;; I don't know how to find the current path effectively... so I'll just assume that you started Dr/Mz in the
-;; examples path.
 (define-runtime-path here-path ".")
-
-;; Let's just check to make sure this is okay...
-(unless (file-exists? (build-path here-path "sample-gnucash-file"))
-  (error 'gnucash-example
-         "Due to hurried programming, this example can only be run when the current directory is the one containing the sample file."))
 
 ;; ordinarily, the source file would be in some other directory...
 (define gnucash-file-source (expand-user-path (build-path here-path "sample-gnucash-file")))
@@ -33,7 +26,10 @@
 (printf "Account names: ~v\n" (map account-name-path accounts))
 
 ;; locate the id for the checking account
-(define checking-account-id (account-id (find-account `("Assets" "Current Assets" "Checking Account"))))
+(define checking-account-id (account-id
+                             (find-account
+                              `("Root Account"
+                                "Assets" "Current Assets" "Checking Account"))))
 
 ;; find all the transactions into or out of "Assets:Current Assets:Checking Account"
 (define my-transactions (crossers transactions (list checking-account-id)))
