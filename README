@@ -1,0 +1,6 @@
+This repo contains a racket package that can parse gnucash's XML
+format. For more information, read the docs on http://pkgs.racket-lang.org,
+or install it with
+
+raco pkg install gnucash
+
