@@ -14,7 +14,7 @@ For heaven's sake don't try using this stuff unless you've already written a
 bunch of Racket code.
 
 Olin Shivers talks about 80% solutions; I would call this a 60% solution.  Here's why
-you'd use it: it has tests, and they run. Let me know if you improve it.}
+you'd use it: it has example code, and it runs. Let me know if you improve it.}
 
 @section{How to Use It:}
 
