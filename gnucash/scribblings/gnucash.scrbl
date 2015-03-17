@@ -106,7 +106,7 @@ not accounts.  The example file shows this happening.
 
 @section{Example.rkt}
 
-For an example of how to use this, take a look at @path{examples/examples.rkt}.
+For an example of how to use this, take a look at @filepath{examples/examples.rkt}.
 
 Well, that's about all I have to say for now.  Let me know if you find it
 useful or if it makes you grind your teeth.
