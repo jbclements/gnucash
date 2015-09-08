@@ -8,8 +8,7 @@
                    "srfi-lite-lib"
                    "memoize"
                    "rackunit-lib"
-                   "typed-racket-lib"
-                   "unstable-contract-lib"))
+                   "typed-racket-lib"))
 
 (define build-deps
   (list "racket-doc"
