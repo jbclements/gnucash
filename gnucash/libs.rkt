@@ -44,14 +44,19 @@
                                          splitlist/c)))]
           [account-group->dataset
            (-> (list/c id-string? splitlist/c)
-               (list/c account? (listof (list/c time? number?))))
+               dataset/c)
 ]))
 
 (define transaction? list?)
 (define account? list?)
+;; a split is part of a transaction, showing money
+;; moving from one account to another.
 (define split? list?)
 (define id-string? string?)
+;; a splitlist is an association from time to split
 (define splitlist/c (listof (list/c time? split?)))
+;; a dataset has an account and an association list mapping times to amounts
+(define dataset/c (list/c account? (listof (list/c time? number?))))
 
 ;; this explicit init is gross, but fixing it would require going to units.
 (define book-ids #f)

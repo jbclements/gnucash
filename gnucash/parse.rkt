@@ -49,6 +49,7 @@
 (define (gnucash-read gnucash-file gnucash-cache-file)
   ;; refresh cache if necessary
   (when (or (not (file-exists? gnucash-cache-file))
+            (= (file-size gnucash-cache-file) 0)
             (< (file-or-directory-modify-seconds gnucash-cache-file)
                (file-or-directory-modify-seconds gnucash-file)))
     (cache-as-zo gnucash-file gnucash-cache-file))
