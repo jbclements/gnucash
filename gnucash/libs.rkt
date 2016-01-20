@@ -71,40 +71,7 @@
   (set! commodities (tag-filter commodity-tag list-of-things))
   (set! accounts (tag-filter account-tag list-of-things))
   (set! transactions (tag-filter transaction-tag list-of-things)))
-  
 
-;; find a given tag, signal an error if missing or more than one
-(define (find-tag elt tag-list)
-  (define proc (sxpath tag-list))
-  (unless (procedure? proc)
-    (raise-argument-error 'find-tag
-                          "tag-list that works with sxpath"
-                          1 elt tag-list))
-  (oo/fail (proc elt)
-           (lambda ()
-             (raise-argument-error 'find-tag
-                                   (format "element with tags ~v" tag-list)
-                                   0 elt tag-list))))
-
-;; find the single element in the given tag
-(define (find-tag/1 elt tag-list)
-  (oo/fail (sxml:content (find-tag elt tag-list))
-           (lambda ()
-             (raise-argument-error 'find-tag
-                                   (format 
-                                    "element with tags ~v containing exactly one element"
-                                    tag-list)
-                                   0 elt tag-list))))
-
-; given a transaction, return its date.
-(define (transaction-date transaction) 
-  (string->date 
-   (find-tag/1 transaction (list date-posted-tag date-tag))
-   "~Y-~m-~d ~H:~M:~S ~z"))
-  
-;; given an account, return its name or false
-(define (account-name account)
-  (oof (sxml:content (find-tag account (list account-name-tag)))))
   
 ;; return the parent of an account, or #f if it has none
 (define (account-parent account)
@@ -112,21 +79,7 @@
     [#f #f]
     [other (oo (sxml:content other))]))
   
-;; return the id of an account
-(define (account-id account)
-  (find-tag/1 account (list account-id-tag)))
-  
-;; return the splits of a transaction
-(define (transaction-splits t)
-  (sxml:content (find-tag t (list splits-tag))))
 
-;; return the currency of a transaction
-(define (transaction-currency t)
-  (find-tag t (list transaction-currency-tag)))
-
-;; is this the account or the id of the account?
-(define (split-account s)
-  (find-tag/1 s (list split-account-tag)))
   
 (define (split-value s)
   (string->number (find-tag/1 s (list split-value-tag))))
