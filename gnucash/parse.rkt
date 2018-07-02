@@ -3,11 +3,13 @@
 (require sxml
          racket/format
          racket/system
-         racket/match)
+         racket/match
+         racket/contract)
 
 ;(require (for-syntax scheme))
 
-(provide (all-defined-out))
+(provide (contract-out
+          [gnucash-read (-> path-string? path-string? (listof any/c))]))
 
 ;; WARNING: assumes a unix-y path convention.  Fix this if you like.
 

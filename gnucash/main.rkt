@@ -1,17 +1,9 @@
-#lang racket
+#lang racket/base
 
 (require "libs.rkt"
+         "typed-libs.rkt"
          "parse.rkt")
 
-
-(provide/contract [gnucash-init 
-                   (-> 
-                    path-string?
-                    path-string?
-                    void?)])
-
-(provide (all-from-out "libs.rkt"))
-
-
-(define (gnucash-init gnucash-file zo-file)
-  (init-libs (gnucash-read gnucash-file zo-file)))
+(provide (all-from-out "libs.rkt")
+         (all-from-out "typed-libs.rkt")
+         (all-from-out "parse.rkt"))

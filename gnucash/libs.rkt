@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require sxml
-         (lib "time.ss" "srfi" "19")
+         srfi/19/time
          racket/match
          "typed-libs.rkt"
          memoize
@@ -58,58 +58,22 @@
 ;; a dataset has an account and an association list mapping times to amounts
 (define dataset/c (list/c account? (listof (list/c time? number?))))
 
-;; this explicit init is gross, but fixing it would require going to units.
-(define book-ids #f)
-(define count-data #f)
-(define commodities #f)
-(define accounts #f)
-(define transactions #f)
-
-(define (init-libs list-of-things)
-  (set! book-ids (tag-filter book-id-tag list-of-things))
-  (set! count-data (tag-filter count-data-tag list-of-things))
-  (set! commodities (tag-filter commodity-tag list-of-things))
-  (set! accounts (tag-filter account-tag list-of-things))
-  (set! transactions (tag-filter transaction-tag list-of-things)))
-
-  
-;; return the parent of an account, or #f if it has none
-(define (account-parent account)
-  (match (oof ((sxpath (list account-parent-tag)) account))
-    [#f #f]
-    [other (oo (sxml:content other))]))
-  
-
   
 (define (split-value s)
   (string->number (find-tag/1 s (list split-value-tag))))
   
-(define (id->account id)
-  (oo (filter (lambda (account) (string=? id (account-id account))) accounts)))
+
 
 ;; an account-tree is
 ;; - (make-acct-tree name acct (listof account-tree)
 
-;; find the account with a given path of names
-;; memoization here is totally vital
-(define/memo (account-name-path account)
-  (reverse (let loop ([account account])
-             (let ([maybe-parent (account-parent account)])
-               (cons (account-name account)
-                     (if maybe-parent
-                         (loop (id->account maybe-parent))
-                         null))))))
+
   
 
-;; find an account with the given name path
-(define (find-account name-path)
-  (oo/fail (filter (lambda (acct) (equal? (account-name-path acct) name-path))
-                   accounts)
-           (lambda () (format "no account named ~v" name-path))))
 
 ;; find accounts whose name path starts with the given prefix
-(define (find-account/prefix name-path)
-  (filter (lambda (acct) (prefix? name-path (account-name-path acct)))
+(define (find-account/prefix name-path accounts)
+  (filter (lambda (acct) (prefix? name-path (account-name-path acct accounts)))
           accounts))
   
 ;; list list -> boolean
@@ -137,8 +101,10 @@
 (define (make-year-filter year)
   (make-date-filter (srfi:make-date 0 0 0 0 1 1 year 0)
                     (srfi:make-date 0 0 0 0 1 1 (+ year 1) 0)))
-  
-  (define (year->transactions year) (filter (make-year-filter year) transactions))
+
+;; given a year and the set of all transactions
+(define (year->transactions year transactions)
+  (filter (make-year-filter year) transactions))
   
 ;; find all transactions where at least one split is in the list of 
 ;; account ids and one split is outside the list.
@@ -215,30 +181,30 @@
                             (apply + (map split-value (map cadr splits))))])
        grouped))
 
-  (define (budget-report s e accounts)
-    (generate-budget-report (splits-by-account s e (map account-id accounts))))
+(define (budget-report s e accounts transactions)
+  (generate-budget-report (splits-by-account s e (map account-id accounts))))
   
-  (define (splits-by-account s e acct-ids)
-    (let* ([crossers (crossers (transactions-in-range s e) acct-ids)]
-           [external-motion (apply append (map (lambda (transaction)
-                                                 (external-splits transaction acct-ids))
-                                               crossers))])
-      (group-by-account external-motion)))
+(define (splits-by-account s e acct-ids transactions)
+  (let* ([crossers (crossers (transactions-in-range s e transactions) acct-ids)]
+         [external-motion (apply append (map (lambda (transaction)
+                                               (external-splits transaction acct-ids))
+                                             crossers))])
+    (group-by-account external-motion)))
   
-  (define (transactions-in-range s e)
-    (filter (make-date-filter s e) transactions))
+(define (transactions-in-range s e transactions)
+  (filter (make-date-filter s e) transactions))
   
-  (define (pair-up a b)
-    (let ([ht (make-hash)])
-      (for-each (match-lambda 
-                  [(list k v) (hash-set! ht k (list v))])
-                a)
-      (for-each (match-lambda 
-                  [(list k v) (hash-set! ht k (cons v (hash-ref ht k (list 0))))])
-                b)
-      (hash-map ht (lambda (k v) (match v 
-                                   [(list a b) (list k b a)]
-                                   [(list a) (list k a 0)])))))
+(define (pair-up a b)
+  (let ([ht (make-hash)])
+    (for-each (match-lambda 
+                [(list k v) (hash-set! ht k (list v))])
+              a)
+    (for-each (match-lambda 
+                [(list k v) (hash-set! ht k (cons v (hash-ref ht k (list 0))))])
+              b)
+    (hash-map ht (lambda (k v) (match v 
+                                 [(list a b) (list k b a)]
+                                 [(list a) (list k a 0)])))))
   
   (define (expenses-only br)
     (filter (match-lambda [(list name a b)
@@ -249,14 +215,17 @@
                                  [else #f])])
             br))
   
-  (define (print-it a)
-    (for-each (match-lambda [(list name a b) (printf "~a\t~v\t~v\n" (colonsep name) (digfmt a) (digfmt b))]) a))
+(define (print-it a)
+  (for-each (match-lambda [(list name a b) (printf "~a\t~v\t~v\n" (colonsep name) (digfmt a) (digfmt b))]) a))
   
-  (define (colonsep strlist)
-    (apply string-append (cons (car strlist) (map (lambda (x) (string-append ":" x)) (cdr strlist)))))
-  
-  (define (digfmt n)
-    (/ (* n 100) 100.0))
+(define (colonsep strlist)
+  (apply string-append (cons (car strlist) (map (lambda (x) (string-append ":" x)) (cdr strlist)))))
+
+;; i think this could be replaced by ~r...
+(define (digfmt n)
+  (/ (* n 100) 100.0))
+
+
   
 
 ;; given an account group, produce a dataset...

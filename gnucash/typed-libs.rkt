@@ -1,7 +1,7 @@
 #lang typed/racket/base
 
 (require racket/match
-         )
+         memoize)
 
 (require/typed sxml
                [sxpath (Any -> (Sxml -> (Listof Sxml)))]
@@ -12,10 +12,19 @@
                [string->date (String String -> date)])
 
 (define-type Sxml (U String Symbol Number (Listof Sxml)))
+(define-type Gnucash-Element (Pairof Symbol (Listof Sxml)))
 
 ;; migrating tiny bits from libs.rkt?
 
-(provide book-id-tag
+(provide gnucash-element-type
+         Gnucash-Element-Type
+         id->account
+         find-account
+         account-name-path
+         parsed->accounts
+         parsed->transactions
+         
+         book-id-tag
          count-data-tag
          commodity-tag
          pricedb-tag
@@ -44,27 +53,130 @@
          transaction-currency
          split-account)
 
-(define book-id-tag (string->symbol "http://www.gnucash.org/XML/book:id"))
-(define count-data-tag (string->symbol "http://www.gnucash.org/XML/gnc:count-data"))
-(define commodity-tag (string->symbol "http://www.gnucash.org/lxr/gnucash/source/src()/doc/xml/io-gncxml-version-2.dtd#gnc:commodity"))
-(define pricedb-tag (string->symbol "http://www.gnucash.org/XML/gnc:pricedb"))
-(define account-tag (string->symbol "http://www.gnucash.org/XML/gnc:account"))
-(define transaction-tag (string->symbol "http://www.gnucash.org/XML/gnc:transaction"))
+(define gnucash-stem "http://www.gnucash.org/")
+(define gnucash-xml-stem (string-append gnucash-stem "XML/"))
+(define (gnucash-xml-label [id : Symbol]) : Symbol
+  (string->symbol (string-append gnucash-xml-stem (symbol->string id))))
 
-(define date-tag '|http://www.gnucash.org/XML/ts:date|)
-(define date-posted-tag '|http://www.gnucash.org/XML/trn:date-posted|)
-(define account-name-tag '|http://www.gnucash.org/XML/act:name|)
-(define account-parent-tag '|http://www.gnucash.org/XML/act:parent|)
-(define account-id-tag '|http://www.gnucash.org/XML/act:id|)
-(define transaction-currency-tag 'http://www.gnucash.org/XML/trn:currency)
-(define splits-tag '|http://www.gnucash.org/XML/trn:splits|)
-(define split-account-tag '|http://www.gnucash.org/XML/split:account|)
-(define split-value-tag 'http://www.gnucash.org/XML/split:value)
+;; these are the observed types of gnucash elements
+(define-type Gnucash-Element-Type
+  (U 'book-id 'count-data 'pricedb 'commodity 'account 'transaction))
+
+(define book-id-tag (gnucash-xml-label 'book:id))
+(define count-data-tag (gnucash-xml-label 'gnc:count-data))
+;; may have changed?
+(define commodity-tag
+  (gnucash-xml-label 'gnc:commodity)
+  #;(string->symbol "http://www.gnucash.org/lxr/gnucash/source/src()/doc/xml/io-gncxml-version-2.dtd#gnc:commodity"))
+(define pricedb-tag (gnucash-xml-label 'gnc:pricedb))
+(define account-tag (gnucash-xml-label 'gnc:account))
+(define transaction-tag (gnucash-xml-label 'gnc:transaction))
+
+(define date-tag (gnucash-xml-label '|ts:date|))
+(define date-posted-tag (gnucash-xml-label '|trn:date-posted|))
+(define account-name-tag (gnucash-xml-label '|act:name|))
+(define account-parent-tag (gnucash-xml-label 'act:parent))
+(define account-id-tag (gnucash-xml-label 'act:id))
+(define transaction-currency-tag (gnucash-xml-label 'trn:currency))
+(define splits-tag (gnucash-xml-label 'trn:splits))
+(define split-account-tag (gnucash-xml-label 'split:account))
+(define split-value-tag (gnucash-xml-label '|split:value|))
 
 (define dollars
   `(http://www.gnucash.org/XML/trn:currency
     (http://www.gnucash.org/XML/cmdty:space "ISO4217")
     (http://www.gnucash.org/XML/cmdty:id "USD")))
+
+;; gnucash elements have different tags; these should be ex...
+(define (gnucash-element-type [element : (Pairof Symbol
+                                                 (Listof Sxml))])
+  : Gnucash-Element-Type
+  (hash-ref element-type-table (car element)
+            (λ () (error 'gnucash-element-type
+                         "unexpected sxml tag: ~e"
+                         (car element)))))
+
+(define element-type-table : (HashTable Symbol Gnucash-Element-Type)
+  (make-immutable-hash
+   (ann
+    (list
+     (cons book-id-tag 'book-id)
+     (cons count-data-tag 'count-data)
+     (cons commodity-tag 'commodity)
+     (cons account-tag 'account)
+     (cons transaction-tag 'transaction))
+    (Listof (Pairof Symbol Gnucash-Element-Type)))))
+
+;; given a list of gnucash sxml things, return the transactions:
+(define (parsed->transactions [elts : (Listof Gnucash-Element)])
+  (tag-filter transaction-tag elts))
+
+;; given a list of gnucash sxml things, return the accounts:
+(define (parsed->accounts [elts : (Listof Gnucash-Element)])
+  (tag-filter account-tag elts))
+
+;; given an id and the list of accounts, return the account
+;; referred to by the id
+(define (id->account [id : String]
+                     [accounts : (Listof Gnucash-Element)])
+  (oo (filter (lambda ([account : Gnucash-Element])
+                (equal? id (account-id account))) accounts)))
+
+
+;; find an account with the given name path
+(define (find-account [name-path : (Listof String)]
+                      [accounts : (Listof Gnucash-Element)])
+  (oo/fail (filter (lambda ([acct : Gnucash-Element])
+                     (equal? (account-name-path acct accounts)
+                             name-path))
+                   accounts)
+           (lambda () (format "no account named ~v" name-path))))
+
+
+;; given a gnucash-element representing an account, return
+;; a list of strings representing the name chain, e.g.
+;; '("Root Account" "Assets" "Jewelry")
+;; memoization here is totally vital
+;; gee whiz... I wish memoize worked on typed racket. sigh.
+(define account-name-path-hash
+  : (Mutable-HashTable (Listof Gnucash-Element)
+                       (Listof String))
+  (make-hash))
+(define (account-name-path [init-account : Gnucash-Element]
+                           [accounts : (Listof Gnucash-Element)])
+  : (Listof String)
+  (define key (cons init-account accounts))
+  (hash-ref
+   account-name-path-hash
+   key
+   (λ ()
+     (define result (account-name-path-search init-account
+                                              accounts))
+     (hash-set! account-name-path-hash key result)
+     result)))
+
+(define (account-name-path-search [init-account : Gnucash-Element]
+                                  [accounts : (Listof Gnucash-Element)])
+  : (Listof String)
+  (reverse (let loop : (Listof String)
+             ([account : Gnucash-Element init-account])
+             (let ([maybe-parent (account-parent account)])
+               (cons (account-name account)
+                     (if maybe-parent
+                         (loop (id->account maybe-parent accounts))
+                         null))))))
+
+;; return the parent of an account, or #f if it has none
+(define (account-parent [account : Gnucash-Element]) : (U False String)
+  (define maybe-parent-field
+    (oof ((sxpath (list account-parent-tag)) account)))
+  (cond [(not maybe-parent-field) #f]
+        [else
+         (match (oo (sxml:content maybe-parent-field))
+           [(? string? s) s]
+           [other (error 'account-parent
+                         "expected string as content of elemnt, got: ~e"
+                         other)])]))
 
 
 ;; return elt for lists of length one
@@ -97,7 +209,7 @@
 ;; return only those elements whose car is eq? to the tag
 (: tag-filter (All (T U) (T (Listof (Pair T U)) -> (Listof (Pair T U)))))
 (define (tag-filter tag elts)
-  (filter (lambda: ([elt : (Pair T U)])
+  (filter (lambda ([elt : (Pair T U)])
             (eq? (car elt) tag))
           elts))
 

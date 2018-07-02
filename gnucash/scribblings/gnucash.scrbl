@@ -33,7 +33,7 @@ has some utility functions for handling it. Both of them are loaded automaticall
 @subsection{Parsing}
 
 @defproc[(gnucash-read (gnucash-file path-string?) (gnucash-zo-file path-string?))
-         true]{The reader does a funny thing: since XML reading is so appallingly slow, it
+         (listof sxml-thing)]{The reader does a funny thing: since XML reading is so appallingly slow, it
 makes a .zo file that contains the compiled representation of the input file.
 Building this thing is horrifically slow, taking about 3 minutes to process my
 3-megabyte gnucash file (actually, it's 19M after unzipping it).  This is all
@@ -63,17 +63,6 @@ Here's how to require it:
 
 @racket[(require gnucash/libs)]
 
-Ooh, this one is yucky. If I had more time to spend on this, I would make this
-library a unit that imports a set of transactions from another unit.  This is
-because functions like "find-account" need to know about all the accounts in
-the world.  Instead of using units (or parameterizing every call to
-find-account et. al. by a big global table), I have an init function:
-
-@defproc[(init-libs (list-of-gnucash-things (listof any/c)))
- any/c]{
- Call this function with the result of gnucash-read, to mutate a bunch of lib's
-internal variables.  Is this gross?  Yes, it's gross.}
-
 I'm not even going to try to document a significant subset of the functions in
 lib.rkt; they're mostly like this one:
 
@@ -87,7 +76,7 @@ Returns the date associated with the transaction
 
 Here's one worth mentioning:
 
-> (crossers transactions account-ids)
+> (crossers transactions account-ids accounts)
 
 For most kinds of graphing/reporting/munging/etc., you will want to choose a
 set of accounts and look for all transactions that "cross the line", in the
@@ -111,5 +100,5 @@ For an example of how to use this, take a look at @filepath{examples/examples.rk
 Well, that's about all I have to say for now.  Let me know if you find it
 useful or if it makes you grind your teeth.
 
-John Clements, 2007-08 (updated repeatedly, most recently 2015-03)
+John Clements, 2007-08 (updated repeatedly, most recently 2018-07-01)
 
