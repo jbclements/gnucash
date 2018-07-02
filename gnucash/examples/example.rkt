@@ -47,9 +47,105 @@
                      (net t (list checking-account-id) dollars)))
              my-transactions))
 
-(require rackunit)
-;; regression test:
-(check-equal? 
- (length (year->transactions 2007 transactions))
- 7)
+(define checking-account
+  (find-account/prefix
+   '("Root Account" "Assets" "Current Assets" "Checking Account")
+   accounts))
+
+(map (compose (curryr account-name-path accounts)
+              (curryr id->account accounts)
+              split-account
+              second)
+     (all-splits (first transactions)))
+
+(module+ test
+  
+  (require rackunit
+           srfi/19)
+  ;; regression test:
+  (check-equal? 
+   (length (year->transactions 2007 transactions))
+   7)
+
+  ;; regression test:
+  (check-equal?
+   (take (apply append (map all-splits transactions))
+         6)
+   (list
+    (list
+     (make-time 'time-utc 0 1170144000)
+     '(http://www.gnucash.org/XML/trn:split
+       (http://www.gnucash.org/XML/split:id (@ (type "guid")) "9374fea23a266b1ee6162c1c6f02cb77")
+       (http://www.gnucash.org/XML/split:reconciled-state "n")
+       (http://www.gnucash.org/XML/split:value "100000/100")
+       (http://www.gnucash.org/XML/split:quantity "100000/100")
+       (http://www.gnucash.org/XML/split:account (@ (type "guid")) "ae3cb692a4101e744f4ff021896178a8")))
+    (list
+     (make-time 'time-utc 0 1170144000)
+     '(http://www.gnucash.org/XML/trn:split
+       (http://www.gnucash.org/XML/split:id (@ (type "guid")) "f59e16783fa01fd3cc60d9f4c06f082e")
+       (http://www.gnucash.org/XML/split:reconciled-state "n")
+       (http://www.gnucash.org/XML/split:value "-100000/100")
+       (http://www.gnucash.org/XML/split:quantity "-100000/100")
+       (http://www.gnucash.org/XML/split:account (@ (type "guid")) "679a80e5250a3d31670f64d8224d7a88")))
+    (list
+     (make-time 'time-utc 0 1172822400)
+     '(http://www.gnucash.org/XML/trn:split
+       (http://www.gnucash.org/XML/split:id (@ (type "guid")) "f2e57c66fc214622acf9428c06b8807c")
+       (http://www.gnucash.org/XML/split:reconciled-state "n")
+       (http://www.gnucash.org/XML/split:value "100000/100")
+       (http://www.gnucash.org/XML/split:quantity "100000/100")
+       (http://www.gnucash.org/XML/split:account (@ (type "guid")) "ae3cb692a4101e744f4ff021896178a8")))
+    (list
+     (make-time 'time-utc 0 1172822400)
+     '(http://www.gnucash.org/XML/trn:split
+       (http://www.gnucash.org/XML/split:id (@ (type "guid")) "ce2ca00fad0ad55a5ba05dba6da8fec1")
+       (http://www.gnucash.org/XML/split:reconciled-state "n")
+       (http://www.gnucash.org/XML/split:value "-100000/100")
+       (http://www.gnucash.org/XML/split:quantity "-100000/100")
+       (http://www.gnucash.org/XML/split:account (@ (type "guid")) "679a80e5250a3d31670f64d8224d7a88")))
+    (list
+     (make-time 'time-utc 0 1172995200)
+     '(http://www.gnucash.org/XML/trn:split
+       (http://www.gnucash.org/XML/split:id (@ (type "guid")) "78d96a5fcc8ea3eb92a8679556d75b48")
+       (http://www.gnucash.org/XML/split:reconciled-state "n")
+       (http://www.gnucash.org/XML/split:value "20000/100")
+       (http://www.gnucash.org/XML/split:quantity "20000/100")
+       (http://www.gnucash.org/XML/split:account (@ (type "guid")) "5ae3bbafcf214a8b482ad01e13b7b922")))
+    (list
+     (make-time 'time-utc 0 1172995200)
+     '(http://www.gnucash.org/XML/trn:split
+       (http://www.gnucash.org/XML/split:id (@ (type "guid")) "cc9f79157b32d8d80a6932992b9302ff")
+       (http://www.gnucash.org/XML/split:reconciled-state "n")
+       (http://www.gnucash.org/XML/split:value "-20000/100")
+       (http://www.gnucash.org/XML/split:quantity "-20000/100")
+       (http://www.gnucash.org/XML/split:account (@ (type "guid")) "ae3cb692a4101e744f4ff021896178a8"))))
+   16)
+
+  ;; regression:
+  (check-equal?
+   (list->set (group-by-account (all-splits (first transactions))))
+   (set
+    (list
+     "679a80e5250a3d31670f64d8224d7a88"
+     (list
+      (list
+       (make-time 'time-utc 0 1170144000)
+       '(http://www.gnucash.org/XML/trn:split
+         (http://www.gnucash.org/XML/split:id (@ (type "guid")) "f59e16783fa01fd3cc60d9f4c06f082e")
+         (http://www.gnucash.org/XML/split:reconciled-state "n")
+         (http://www.gnucash.org/XML/split:value "-100000/100")
+         (http://www.gnucash.org/XML/split:quantity "-100000/100")
+         (http://www.gnucash.org/XML/split:account (@ (type "guid")) "679a80e5250a3d31670f64d8224d7a88")))))
+    (list
+     "ae3cb692a4101e744f4ff021896178a8"
+     (list
+      (list
+       (make-time 'time-utc 0 1170144000)
+       '(http://www.gnucash.org/XML/trn:split
+         (http://www.gnucash.org/XML/split:id (@ (type "guid")) "9374fea23a266b1ee6162c1c6f02cb77")
+         (http://www.gnucash.org/XML/split:reconciled-state "n")
+         (http://www.gnucash.org/XML/split:value "100000/100")
+         (http://www.gnucash.org/XML/split:quantity "100000/100")
+         (http://www.gnucash.org/XML/split:account (@ (type "guid")) "ae3cb692a4101e744f4ff021896178a8"))))))))
 

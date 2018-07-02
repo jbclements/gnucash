@@ -32,12 +32,9 @@
 
 ;; this provide is way too coarse, but I can't be bothered to fix it.
 (provide (except-out (all-defined-out)
-                     all-splits
                      group-by-account
                      account-group->dataset)
          (contract-out 
-          [all-splits (-> transaction?
-                          splitlist/c)]
           [group-by-account (-> splitlist/c
                                 (listof
                                  (list/c id-string? 
@@ -71,22 +68,7 @@
   
 
 
-;; find accounts whose name path starts with the given prefix
-(define (find-account/prefix name-path accounts)
-  (filter (lambda (acct) (prefix? name-path (account-name-path acct accounts)))
-          accounts))
   
-;; list list -> boolean
-(define (prefix? a b)
-  (match (list a b)
-    [(list (list) any) #t]
-    [(list (cons a arest) (cons b brest)) (and (equal? a b) (prefix? arest brest))]
-    [else #f]))
-  
-(check-true (prefix? `() `()))
-(check-true (prefix? `(a) `(a)))
-(check-false (prefix? `(a b) `(a c)))
-(check-true (prefix? `(a b c) `(a b c d)))
 
 ;; date date -> (transaction -> boolean)
 (define (make-date-filter start end)
@@ -130,12 +112,6 @@
            [date (transaction-date transaction)]
            [externals (filter (lambda (s) (not (member (split-account s) account-ids))) splits)])
       (map (lambda (split) (list (date->time-utc date) split)) externals)))
-
-  ;; returns all the splits of the transaction
-  (define (all-splits transaction)
-    (let* ([splits (sxml:content (transaction-splits transaction))]
-           [date (transaction-date transaction)])
-      (map (lambda (split) (list (date->time-utc date) split)) splits)))
   
   (define (print-transaction t)
     (printf "~a\n" (date->string (transaction-date t)))

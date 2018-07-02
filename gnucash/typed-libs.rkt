@@ -9,10 +9,15 @@
 
 (require/typed srfi/19
                [#:opaque date date?]
+               [#:opaque time time?]
+               [date->time-utc (date -> time)]
                [string->date (String String -> date)])
 
 (define-type Sxml (U String Symbol Number (Listof Sxml)))
 (define-type Gnucash-Element (Pairof Symbol (Listof Sxml)))
+(define-type Splitlist (Listof (List time Gnucash-Element)))
+
+(define-predicate gnucash-element? Gnucash-Element)
 
 ;; migrating tiny bits from libs.rkt?
 
@@ -20,9 +25,11 @@
          Gnucash-Element-Type
          id->account
          find-account
+         find-account/prefix
          account-name-path
          parsed->accounts
          parsed->transactions
+         all-splits
          
          book-id-tag
          count-data-tag
@@ -133,6 +140,31 @@
            (lambda () (format "no account named ~v" name-path))))
 
 
+;; find accounts whose name path starts with the given prefix
+(define (find-account/prefix [name-path : (Listof String)]
+                             [accounts : (Listof Gnucash-Element)])
+  (filter (lambda ([acct : Gnucash-Element])
+            (prefix? name-path (account-name-path acct accounts)))
+          accounts))
+
+
+;; list list -> boolean
+;; is 'a' a prefix of 'b' ?
+(: prefix? (All (T) ((Listof T) (Listof T) -> Boolean)))
+(define (prefix? a b)
+  (match (list a b)
+    [(list (list) any) #t]
+    [(list (cons a arest) (cons b brest)) (and (equal? a b) (prefix? arest brest))]
+    [else #f]))
+
+(module+ test
+  (require typed/rackunit)
+  (check-true (prefix? `() `()))
+  (check-true (prefix? `(a) `(a)))
+  (check-false (prefix? `(a b) `(a c)))
+  (check-true (prefix? `(a b c) `(a b c d))))
+
+
 ;; given a gnucash-element representing an account, return
 ;; a list of strings representing the name chain, e.g.
 ;; '("Root Account" "Assets" "Jewelry")
@@ -177,6 +209,16 @@
            [other (error 'account-parent
                          "expected string as content of elemnt, got: ~e"
                          other)])]))
+
+
+
+;; returns all the splits of the transaction
+(define (all-splits [transaction : Gnucash-Element]) : Splitlist
+  (let* ([splits (sxml:content (transaction-splits transaction))]
+         [date (transaction-date transaction)])
+    (map (lambda ([split : Sxml])
+           (list (date->time-utc date) (assert split gnucash-element?)))
+         splits)))
 
 
 ;; return elt for lists of length one
