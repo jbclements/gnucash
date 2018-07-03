@@ -21,6 +21,10 @@
 (define-type Gnucash-Element (Pairof Symbol (Listof Sxml)))
 (define-type Splitlist (Listof (List time Gnucash-Element)))
 
+;; a dataset has an account and an association list mapping times to amounts
+(define-type Dataset (List Account-Sxml (Listof (List time Real))))
+
+
 (define-predicate gnucash-element? Gnucash-Element)
 
 ;; migrating tiny bits from libs.rkt?
@@ -153,6 +157,18 @@
 (define (parsed->accounts [elts : (Listof Gnucash-Element)])
   : (Listof Account-Sxml)
   (assert (tag-filter account-tag elts) account-sxml-list?))
+
+
+;; given an account group, produce a dataset...
+;; perhaps this should check to make sure it's a dollars transaction?
+(define (account-group->dataset [account-group : (List String (Listof (List date Gnucash-Element)))]
+                                [accounts : (Listof Account-Sxml)])
+  : Dataset
+  (list (id->account (car account-group) accounts)
+        (for/list ([date-and-split : (Listof (List date Gnucash-Element))
+                                   (cadr account-group)])
+          (list (car date-and-split) (split-value (cadr date-and-split))))))
+
 
 ;; given an id and the list of accounts, return the account
 ;; referred to by the id
@@ -368,9 +384,16 @@
 (define (transaction-currency t)
   (find-tag t (list transaction-currency-tag)))
 
-(: split-account (Sxml -> Sxml))
+(: split-account (Gnucash-Element -> Gnucash-Element))
 (define (split-account s)
-  (find-tag/1 s (list split-account-tag)))
+  (assert (find-tag/1 s (list split-account-tag))
+          gnucash-element?))
+
+(define (split-value [s : Gnucash-Element]) : Real
+  (assert (string->number
+           (assert (find-tag/1 s (list split-value-tag))
+                   string?))
+          real?))
 
 (define (colonsep [strlist : (Listof String)]) : String
   (apply string-append

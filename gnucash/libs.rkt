@@ -55,9 +55,7 @@
 ;; a dataset has an account and an association list mapping times to amounts
 (define dataset/c (list/c account? (listof (list/c time? number?))))
 
-  
-(define (split-value s)
-  (string->number (find-tag/1 s (list split-value-tag))))
+
   
 
 
@@ -202,10 +200,3 @@
 
 
   
-
-;; given an account group, produce a dataset...
-;; perhaps this should check to make sure it's a dollars transaction?
-(define (account-group->dataset account-group)
-  (list (id->account (car account-group))
-        (for/list ([date-and-split (cadr account-group)])
-          (list (car date-and-split) (split-value (cadr date-and-split))))))
