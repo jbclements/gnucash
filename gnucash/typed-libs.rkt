@@ -39,6 +39,8 @@
          parsed->accounts
          parsed->transactions
          all-splits
+         group-by-account
+         account-group->dataset
 
          account-sxml?
          transaction-sxml?
@@ -71,6 +73,7 @@
          transaction-splits
          transaction-currency
          split-account
+         split-value
 
          colonsep)
 
@@ -159,13 +162,26 @@
   (assert (tag-filter account-tag elts) account-sxml-list?))
 
 
+;; organize a list of date-and-splits by account
+(define (group-by-account [date-and-splits : Splitlist])
+  : (Listof (List String Splitlist))
+  (hash-map
+   (for/fold
+     ([ht : (Immutable-HashTable String Splitlist)
+          (hash)])
+     ([date-and-split (in-list date-and-splits)])
+     (let ([id (split-account (cadr date-and-split))])
+       (hash-set ht id (cons date-and-split (hash-ref ht id (λ () `()))))))
+   (λ ([s : String] [sl : Splitlist]) (list s sl))))
+
+
 ;; given an account group, produce a dataset...
 ;; perhaps this should check to make sure it's a dollars transaction?
-(define (account-group->dataset [account-group : (List String (Listof (List date Gnucash-Element)))]
+(define (account-group->dataset [account-group : (List String (Listof (List time Gnucash-Element)))]
                                 [accounts : (Listof Account-Sxml)])
   : Dataset
   (list (id->account (car account-group) accounts)
-        (for/list ([date-and-split : (Listof (List date Gnucash-Element))
+        (for/list ([date-and-split : (List time Gnucash-Element)
                                    (cadr account-group)])
           (list (car date-and-split) (split-value (cadr date-and-split))))))
 
@@ -384,10 +400,10 @@
 (define (transaction-currency t)
   (find-tag t (list transaction-currency-tag)))
 
-(: split-account (Gnucash-Element -> Gnucash-Element))
+(: split-account (Gnucash-Element -> String))
 (define (split-account s)
   (assert (find-tag/1 s (list split-account-tag))
-          gnucash-element?))
+          string?))
 
 (define (split-value [s : Gnucash-Element]) : Real
   (assert (string->number

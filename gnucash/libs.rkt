@@ -31,18 +31,7 @@
 
 
 ;; this provide is way too coarse, but I can't be bothered to fix it.
-(provide (except-out (all-defined-out)
-                     group-by-account
-                     account-group->dataset)
-         (contract-out 
-          [group-by-account (-> splitlist/c
-                                (listof
-                                 (list/c id-string? 
-                                         splitlist/c)))]
-          [account-group->dataset
-           (-> (list/c id-string? splitlist/c)
-               dataset/c)
-]))
+(provide (all-defined-out))
 
 (define transaction? list?)
 (define account? list?)
@@ -52,8 +41,6 @@
 (define id-string? string?)
 ;; a splitlist is an association from time to split
 (define splitlist/c (listof (list/c time? split?)))
-;; a dataset has an account and an association list mapping times to amounts
-(define dataset/c (list/c account? (listof (list/c time? number?))))
 
 
   
@@ -136,18 +123,6 @@
 (define (oct-one year) (srfi:make-date 0 0 0 0 1 10 year 0))
 (define (nov-one year) (srfi:make-date 0 0 0 0 1 11 year 0))
 (define (dec-one year) (srfi:make-date 0 0 0 0 1 12 year 0))
-
-
-  
-  
-;; organize a list of date-and-splits by account
-(define (group-by-account date-and-splits)
-  (hash-map
-   (for/fold ([ht (hash)])
-             ([date-and-split (in-list date-and-splits)])
-     (let ([id (split-account (cadr date-and-split))])
-       (hash-set ht id (cons date-and-split (hash-ref ht id `())))))
-   list))
 
 (define (generate-budget-report grouped)
   (map (match-lambda [(list id splits) 
