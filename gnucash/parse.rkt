@@ -4,7 +4,8 @@
          racket/format
          racket/system
          racket/match
-         racket/contract)
+         racket/contract
+         racket/function)
 
 ;(require (for-syntax scheme))
 
@@ -29,12 +30,14 @@
     (system str))
   (with-input-from-file "/tmp/gnucash-expanded"
     (lambda ()
-      (let* ([parsed (ssax:xml->sxml (current-input-port) '())])
-        (with-output-to-file output-file
-          (lambda ()
-            (write (compile #`(quote #,parsed))))
-          #:exists
-          'truncate)))))
+      (define parsed (ssax:xml->sxml (current-input-port) '()))
+      (printf "done parsing.\n")
+      (with-output-to-file output-file
+        (lambda ()
+          (write (compile #`(quote #,parsed))))
+        #:exists
+        'truncate)
+      (printf "done compiling and writing .zo file\n"))))
 
 ;; read gnucash data from a .zo file produced by cache-as-zo
 (define (read-from-zo zo-file)

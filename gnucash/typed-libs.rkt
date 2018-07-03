@@ -1,7 +1,11 @@
 #lang typed/racket/base
 
-(require racket/match
+(require (for-syntax racket/base)
+         racket/match
          memoize)
+
+(require/typed racket/list
+               [add-between (All (T) ((Listof T) T -> (Listof T)))])
 
 (require/typed sxml
                [sxpath (Any -> (Sxml -> (Listof Sxml)))]
@@ -25,11 +29,14 @@
          Gnucash-Element-Type
          id->account
          find-account
-         find-account/prefix
+         find-accounts/prefix
          account-name-path
          parsed->accounts
          parsed->transactions
          all-splits
+
+         account-sxml?
+         transaction-sxml?
          
          book-id-tag
          count-data-tag
@@ -58,7 +65,28 @@
          account-id
          transaction-splits
          transaction-currency
-         split-account)
+         split-account
+
+         colonsep)
+
+(define-for-syntax gnucash-stem "http://www.gnucash.org/")
+(define-for-syntax gnucash-xml-stem (string-append gnucash-stem "XML/"))
+(define-for-syntax (gnucash-xml-label id)
+  (string->symbol (string-append gnucash-xml-stem (symbol->string id))))
+
+(define-syntax (define-tagged-elt stx)
+  (syntax-case stx ()
+    [(_ name subtag)
+     (with-syntax ([tagsym (gnucash-xml-label (syntax-e #'subtag))])
+     #`(define-type name (Pairof (quote tagsym) (Listof Sxml))))]))
+
+
+(define-tagged-elt Account-Sxml gnc:account)
+(define-predicate account-sxml? Account-Sxml)
+(define-predicate account-sxml-list? (Listof Account-Sxml))
+(define-tagged-elt Transaction-Sxml gnc:transaction)
+(define-predicate transaction-sxml? Transaction-Sxml)
+(define-predicate transaction-sxml-list? (Listof Transaction-Sxml))
 
 (define gnucash-stem "http://www.gnucash.org/")
 (define gnucash-xml-stem (string-append gnucash-stem "XML/"))
@@ -116,23 +144,27 @@
 
 ;; given a list of gnucash sxml things, return the transactions:
 (define (parsed->transactions [elts : (Listof Gnucash-Element)])
-  (tag-filter transaction-tag elts))
+  : (Listof Transaction-Sxml)
+  (assert (tag-filter transaction-tag elts) transaction-sxml-list?))
 
 ;; given a list of gnucash sxml things, return the accounts:
 (define (parsed->accounts [elts : (Listof Gnucash-Element)])
-  (tag-filter account-tag elts))
+  : (Listof Account-Sxml)
+  (assert (tag-filter account-tag elts) account-sxml-list?))
 
 ;; given an id and the list of accounts, return the account
 ;; referred to by the id
 (define (id->account [id : String]
-                     [accounts : (Listof Gnucash-Element)])
-  (oo (filter (lambda ([account : Gnucash-Element])
+                     [accounts : (Listof Account-Sxml)])
+  : Account-Sxml
+  (oo (filter (lambda ([account : Account-Sxml])
                 (equal? id (account-id account))) accounts)))
 
 
 ;; find an account with the given name path
 (define (find-account [name-path : (Listof String)]
-                      [accounts : (Listof Gnucash-Element)])
+                      [accounts : (Listof Account-Sxml)])
+  : Account-Sxml
   (oo/fail (filter (lambda ([acct : Gnucash-Element])
                      (equal? (account-name-path acct accounts)
                              name-path))
@@ -141,9 +173,10 @@
 
 
 ;; find accounts whose name path starts with the given prefix
-(define (find-account/prefix [name-path : (Listof String)]
-                             [accounts : (Listof Gnucash-Element)])
-  (filter (lambda ([acct : Gnucash-Element])
+(define (find-accounts/prefix [name-path : (Listof String)]
+                             [accounts : (Listof Account-Sxml)])
+  : (Listof Account-Sxml)
+  (filter (lambda ([acct : Account-Sxml])
             (prefix? name-path (account-name-path acct accounts)))
           accounts))
 
@@ -175,7 +208,7 @@
                        (Listof String))
   (make-hash))
 (define (account-name-path [init-account : Gnucash-Element]
-                           [accounts : (Listof Gnucash-Element)])
+                           [accounts : (Listof Account-Sxml)])
   : (Listof String)
   (define key (cons init-account accounts))
   (hash-ref
@@ -188,7 +221,7 @@
      result)))
 
 (define (account-name-path-search [init-account : Gnucash-Element]
-                                  [accounts : (Listof Gnucash-Element)])
+                                  [accounts : (Listof Account-Sxml)])
   : (Listof String)
   (reverse (let loop : (Listof String)
              ([account : Gnucash-Element init-account])
@@ -319,3 +352,7 @@
 (: split-account (Sxml -> Sxml))
 (define (split-account s)
   (find-tag/1 s (list split-account-tag)))
+
+(define (colonsep [strlist : (Listof String)]) : String
+  (apply string-append
+         (add-between strlist ":")))

@@ -194,8 +194,7 @@
 (define (print-it a)
   (for-each (match-lambda [(list name a b) (printf "~a\t~v\t~v\n" (colonsep name) (digfmt a) (digfmt b))]) a))
   
-(define (colonsep strlist)
-  (apply string-append (cons (car strlist) (map (lambda (x) (string-append ":" x)) (cdr strlist)))))
+
 
 ;; i think this could be replaced by ~r...
 (define (digfmt n)
