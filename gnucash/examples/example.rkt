@@ -1,7 +1,5 @@
 #lang racket
 
-;; Astonishingly, all of this code still works, eight years later!
-
 ;; replace these with pkg requires if you use this as a template somewhere else:
 (require "../libs.rkt"
          "../typed-libs.rkt"
@@ -47,16 +45,17 @@
                      (net t (list checking-account-id) dollars)))
              my-transactions))
 
-(define checking-account
-  (find-account/prefix
+(define checking-accounts
+  (find-accounts/prefix
    '("Root Account" "Assets" "Current Assets" "Checking Account")
    accounts))
 
-(map (compose (curryr account-name-path accounts)
-              (curryr id->account accounts)
-              split-account
-              second)
-     (all-splits (first transactions)))
+(define accounts-with-splits
+  (map (compose (curryr account-name-path accounts)
+                (curryr id->account accounts)
+                split-account
+                second)
+       (all-splits (first transactions))))
 
 (module+ test
   
