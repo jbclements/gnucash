@@ -31,6 +31,7 @@
          find-account
          find-accounts/prefix
          account-name-path
+         account-type
          parsed->accounts
          parsed->transactions
          all-splits
@@ -112,6 +113,7 @@
 (define account-name-tag (gnucash-xml-label '|act:name|))
 (define account-parent-tag (gnucash-xml-label 'act:parent))
 (define account-id-tag (gnucash-xml-label 'act:id))
+(define account-type-tag (gnucash-xml-label 'act:type))
 (define transaction-currency-tag (gnucash-xml-label 'trn:currency))
 (define splits-tag (gnucash-xml-label 'trn:splits))
 (define split-account-tag (gnucash-xml-label 'split:account))
@@ -165,7 +167,7 @@
 (define (find-account [name-path : (Listof String)]
                       [accounts : (Listof Account-Sxml)])
   : Account-Sxml
-  (oo/fail (filter (lambda ([acct : Gnucash-Element])
+  (oo/fail (filter (lambda ([acct : Account-Sxml])
                      (equal? (account-name-path acct accounts)
                              name-path))
                    accounts)
@@ -204,10 +206,10 @@
 ;; memoization here is totally vital
 ;; gee whiz... I wish memoize worked on typed racket. sigh.
 (define account-name-path-hash
-  : (Mutable-HashTable (Listof Gnucash-Element)
+  : (Mutable-HashTable (Listof Account-Sxml)
                        (Listof String))
   (make-hash))
-(define (account-name-path [init-account : Gnucash-Element]
+(define (account-name-path [init-account : Account-Sxml]
                            [accounts : (Listof Account-Sxml)])
   : (Listof String)
   (define key (cons init-account accounts))
@@ -220,11 +222,11 @@
      (hash-set! account-name-path-hash key result)
      result)))
 
-(define (account-name-path-search [init-account : Gnucash-Element]
+(define (account-name-path-search [init-account : Account-Sxml]
                                   [accounts : (Listof Account-Sxml)])
   : (Listof String)
   (reverse (let loop : (Listof String)
-             ([account : Gnucash-Element init-account])
+             ([account : Account-Sxml init-account])
              (let ([maybe-parent (account-parent account)])
                (cons (account-name account)
                      (if maybe-parent
@@ -232,7 +234,7 @@
                          null))))))
 
 ;; return the parent of an account, or #f if it has none
-(define (account-parent [account : Gnucash-Element]) : (U False String)
+(define (account-parent [account : Account-Sxml]) : (U False String)
   (define maybe-parent-field
     (oof ((sxpath (list account-parent-tag)) account)))
   (cond [(not maybe-parent-field) #f]
@@ -243,7 +245,26 @@
                          "expected string as content of elemnt, got: ~e"
                          other)])]))
 
+(define (account-type [account : Account-Sxml]) : String
+  (assert (oo (sxml:content
+               (oo ((sxpath (list account-type-tag)) account))))
+          string?))
 
+(module+ test
+  (check-equal?
+   (account-type
+    '(http://www.gnucash.org/XML/gnc:account
+      (@ (version "2.0.0"))
+      (http://www.gnucash.org/XML/act:name "Academic")
+      (http://www.gnucash.org/XML/act:id (@ (type "guid")) "0da16f582300ada60adae89f9d275d88")
+      (http://www.gnucash.org/XML/act:type "EXPENSE")
+      (http://www.gnucash.org/XML/act:commodity
+       (http://www.gnucash.org/XML/cmdty:space "ISO4217")
+       
+       (http://www.gnucash.org/XML/cmdty:id "USD"))
+      (http://www.gnucash.org/XML/act:commodity-scu "100")
+      (http://www.gnucash.org/XML/act:parent (@ (type "guid")) "ab7ccf91bac526bb8effe6009b97fdfe")))
+   "EXPENSE"))
 
 ;; returns all the splits of the transaction
 (define (all-splits [transaction : Gnucash-Element]) : Splitlist
@@ -269,8 +290,6 @@
   (match x
     [(list elt) elt]
     [any (error 'oo (fail))]))
-
-
   
 ;; return a single element or #f if empty
 (: oof (All (T) ((Listof T) -> (U False T))))
