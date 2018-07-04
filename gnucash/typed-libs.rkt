@@ -191,8 +191,10 @@
 (define (id->account [id : String]
                      [accounts : (Listof Account-Sxml)])
   : Account-Sxml
-  (oo (filter (lambda ([account : Account-Sxml])
-                (equal? id (account-id account))) accounts)))
+  (oo/fail (filter (lambda ([account : Account-Sxml])
+                     (equal? id (account-id account))) accounts)
+           (λ () (format "id->account: no account found for id ~e"
+                         id))))
 
 
 ;; find an account with the given name path
@@ -271,7 +273,8 @@
     (oof ((sxpath (list account-parent-tag)) account)))
   (cond [(not maybe-parent-field) #f]
         [else
-         (match (oo (sxml:content maybe-parent-field))
+         (match (oo/fail (sxml:content maybe-parent-field)
+                         (λ () "bc"))
            [(? string? s) s]
            [other (error 'account-parent
                          "expected string as content of elemnt, got: ~e"
@@ -414,3 +417,4 @@
 (define (colonsep [strlist : (Listof String)]) : String
   (apply string-append
          (add-between strlist ":")))
+
