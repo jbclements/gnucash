@@ -28,9 +28,10 @@
   (let ([str (~a "gunzip /tmp/gnucash-expanded.gz")])
     (printf "~a\n" str)
     (system str))
-  (with-input-from-file "/tmp/gnucash-expanded"
-    (lambda ()
-      (define parsed (ssax:xml->sxml (current-input-port) '()))
+  (call-with-input-file "/tmp/gnucash-expanded"
+    (lambda (port)
+      (define parsed
+        (ssax:xml->sxml port gnucash-namespace-abbreviations))
       (printf "done parsing.\n")
       (with-output-to-file output-file
         (lambda ()
@@ -38,6 +39,40 @@
         #:exists
         'truncate)
       (printf "done compiling and writing .zo file\n"))))
+
+;; the problem with namespaces is that they generate sxml
+;; listing taken from
+;; https://github.com/Gnucash/gnucash/blob/maint/libgnucash/doc/xml/gnucash-v2.rnc
+(define gnucash-namespace-abbreviations
+  '((gnc . "http://www.gnucash.org/XML/gnc")
+    (act . "http://www.gnucash.org/XML/act")
+    (book . "http://www.gnucash.org/XML/book")
+    (cd . "http://www.gnucash.org/XML/cd")
+    (cmdty . "http://www.gnucash.org/XML/cmdty")
+    (price . "http://www.gnucash.org/XML/price")
+    (slot . "http://www.gnucash.org/XML/slot")
+    (split . "http://www.gnucash.org/XML/split")
+    (sx . "http://www.gnucash.org/XML/sx")
+    (trn . "http://www.gnucash.org/XML/trn")
+    (ts . "http://www.gnucash.org/XML/ts")
+    (fs . "http://www.gnucash.org/XML/fs")
+    (bgt . "http://www.gnucash.org/XML/bgt")
+    (recurrence . "http://www.gnucash.org/XML/recurrence")
+    (lot . "http://www.gnucash.org/XML/lot")
+    (addr . "http://www.gnucash.org/XML/addr")
+    (owner . "http://www.gnucash.org/XML/owner")
+    (billterm . "http://www.gnucash.org/XML/billterm")
+    (bt-days . "http://www.gnucash.org/XML/bt-days")
+    (bt-prox . "http://www.gnucash.org/XML/bt-prox")
+    (cust . "http://www.gnucash.org/XML/cust")
+    (employee . "http://www.gnucash.org/XML/employee")
+    (entry . "http://www.gnucash.org/XML/entry")
+    (invoice . "http://www.gnucash.org/XML/invoice")
+    (job . "http://www.gnucash.org/XML/job")
+    (order . "http://www.gnucash.org/XML/order")
+    (taxtable . "http://www.gnucash.org/XML/taxtable")
+    (tte . "http://www.gnucash.org/XML/tte")
+    (vendor . "http://www.gnucash.org/XML/vendor")))
 
 ;; read gnucash data from a .zo file produced by cache-as-zo
 (define (read-from-zo zo-file)
@@ -47,10 +82,12 @@
 ;; strip top level XML to get a list of gnucash "things"
 (define (strip-top-level-goo xml-elt)
   (match xml-elt
-    [`(*TOP* ,top-attribs (gnc-v2 ,count-data (,book-tag (@ . ,book-attribs) . ,content)))
+    [`(*TOP* ,top-attribs ,pi-node
+             (gnc-v2 (gnc:count-data (@ (cd:type "book")) "1")
+                     (gnc:book (@ (version "2.0.0")) . ,content)))
      content]))
 
-;; use this to read a gnucash file
+;; use this to read a gnucash file. Returns a list of sxml elements
 (define (gnucash-read gnucash-file gnucash-cache-file)
   ;; refresh cache if necessary
   (when (or (not (file-exists? gnucash-cache-file))

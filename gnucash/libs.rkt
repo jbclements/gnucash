@@ -4,8 +4,6 @@
          srfi/19/time
          racket/match
          "typed-libs.rkt"
-         memoize
-         rackunit
          racket/contract)
   
 ;; an account is an sxml datum. It looks like this. Ooh, I'd forgotten

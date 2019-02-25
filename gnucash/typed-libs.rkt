@@ -1,8 +1,7 @@
 #lang typed/racket/base
 
 (require (for-syntax racket/base)
-         racket/match
-         memoize)
+         racket/match)
 
 (require/typed racket/list
                [add-between (All (T) ((Listof T) T -> (Listof T)))])
@@ -22,6 +21,7 @@
 (define-type Splitlist (Listof (List time Gnucash-Element)))
 
 ;; a dataset has an account and an association list mapping times to amounts
+;; "Dataset" is a REALLY TERRIBLE NAME for this.
 (define-type Dataset (List Account-Sxml (Listof (List time Real))))
 
 
@@ -29,16 +29,14 @@
 
 ;; migrating tiny bits from libs.rkt?
 
-(provide gnucash-element-type
-         Gnucash-Element-Type
-         id->account
+(provide id->account
          find-account
          find-accounts/prefix
          account-name-path
          account-type
          parsed->accounts
          parsed->transactions
-         all-splits
+         transaction-splits
          group-by-account
          account-group->dataset
 
@@ -70,24 +68,24 @@
          transaction-date
          account-name
          account-id
-         transaction-splits
+         transaction-split-xmls
          transaction-currency
          split-account
          split-value
 
          colonsep)
 
-(define-for-syntax gnucash-stem "http://www.gnucash.org/")
-(define-for-syntax gnucash-xml-stem (string-append gnucash-stem "XML/"))
-(define-for-syntax (gnucash-xml-label id)
-  (string->symbol (string-append gnucash-xml-stem (symbol->string id))))
+
+
+
+
+;; defines the type Gnucash-XML-Element-Lab
+
 
 (define-syntax (define-tagged-elt stx)
   (syntax-case stx ()
     [(_ name subtag)
-     (with-syntax ([tagsym (gnucash-xml-label (syntax-e #'subtag))])
-     #`(define-type name (Pairof (quote tagsym) (Listof Sxml))))]))
-
+     #`(define-type name (Pairof (quote subtag) (Listof Sxml)))]))
 
 (define-tagged-elt Account-Sxml gnc:account)
 (define-predicate account-sxml? Account-Sxml)
@@ -96,60 +94,34 @@
 (define-predicate transaction-sxml? Transaction-Sxml)
 (define-predicate transaction-sxml-list? (Listof Transaction-Sxml))
 
-(define gnucash-stem "http://www.gnucash.org/")
-(define gnucash-xml-stem (string-append gnucash-stem "XML/"))
-(define (gnucash-xml-label [id : Symbol]) : Symbol
-  (string->symbol (string-append gnucash-xml-stem (symbol->string id))))
-
 ;; these are the observed types of gnucash elements
 (define-type Gnucash-Element-Type
-  (U 'book-id 'count-data 'pricedb 'commodity 'account 'transaction))
+  (U 'book:id 'count:data 'gnc:pricedb 'gnc:commodity 'gnc:account 'gnc:transaction))
 
-(define book-id-tag (gnucash-xml-label 'book:id))
-(define count-data-tag (gnucash-xml-label 'gnc:count-data))
-;; may have changed?
-(define commodity-tag
-  (gnucash-xml-label 'gnc:commodity)
-  #;(string->symbol "http://www.gnucash.org/lxr/gnucash/source/src()/doc/xml/io-gncxml-version-2.dtd#gnc:commodity"))
-(define pricedb-tag (gnucash-xml-label 'gnc:pricedb))
-(define account-tag (gnucash-xml-label 'gnc:account))
-(define transaction-tag (gnucash-xml-label 'gnc:transaction))
 
-(define date-tag (gnucash-xml-label '|ts:date|))
-(define date-posted-tag (gnucash-xml-label '|trn:date-posted|))
-(define account-name-tag (gnucash-xml-label '|act:name|))
-(define account-parent-tag (gnucash-xml-label 'act:parent))
-(define account-id-tag (gnucash-xml-label 'act:id))
-(define account-type-tag (gnucash-xml-label 'act:type))
-(define transaction-currency-tag (gnucash-xml-label 'trn:currency))
-(define splits-tag (gnucash-xml-label 'trn:splits))
-(define split-account-tag (gnucash-xml-label 'split:account))
-(define split-value-tag (gnucash-xml-label '|split:value|))
+;; now that we're using abbreviations these are all silly:
+(define book-id-tag 'book:id)
+(define count-data-tag 'gnc:count-data)
+(define commodity-tag 'gnc:commodity)
+(define pricedb-tag 'gnc:pricedb)
+(define account-tag 'gnc:account)
+(define transaction-tag 'gnc:transaction)
+
+(define date-tag 'ts:date)
+(define date-posted-tag 'trn:date-posted)
+(define account-name-tag 'act:name)
+(define account-parent-tag 'act:parent)
+(define account-id-tag 'act:id)
+(define account-type-tag 'act:type)
+(define transaction-currency-tag 'trn:currency)
+(define splits-tag 'trn:splits)
+(define split-account-tag 'split:account)
+(define split-value-tag 'split:value)
 
 (define dollars
-  `(http://www.gnucash.org/XML/trn:currency
-    (http://www.gnucash.org/XML/cmdty:space "ISO4217")
-    (http://www.gnucash.org/XML/cmdty:id "USD")))
-
-;; gnucash elements have different tags; these should be ex...
-(define (gnucash-element-type [element : (Pairof Symbol
-                                                 (Listof Sxml))])
-  : Gnucash-Element-Type
-  (hash-ref element-type-table (car element)
-            (λ () (error 'gnucash-element-type
-                         "unexpected sxml tag: ~e"
-                         (car element)))))
-
-(define element-type-table : (HashTable Symbol Gnucash-Element-Type)
-  (make-immutable-hash
-   (ann
-    (list
-     (cons book-id-tag 'book-id)
-     (cons count-data-tag 'count-data)
-     (cons commodity-tag 'commodity)
-     (cons account-tag 'account)
-     (cons transaction-tag 'transaction))
-    (Listof (Pairof Symbol Gnucash-Element-Type)))))
+  `(trn:currency
+    (cmdty:space "ISO4217")
+    (cmdty:id "USD")))
 
 ;; given a list of gnucash sxml things, return the transactions:
 (define (parsed->transactions [elts : (Listof Gnucash-Element)])
@@ -238,7 +210,6 @@
 ;; a list of strings representing the name chain, e.g.
 ;; '("Root Account" "Assets" "Jewelry")
 ;; memoization here is totally vital
-;; gee whiz... I wish memoize worked on typed racket. sigh.
 (define account-name-path-hash
   : (Mutable-HashTable (Listof Account-Sxml)
                        (Listof String))
@@ -277,7 +248,7 @@
                          (λ () "bc"))
            [(? string? s) s]
            [other (error 'account-parent
-                         "expected string as content of elemnt, got: ~e"
+                         "expected string as content of element, got: ~e"
                          other)])]))
 
 (define (account-type [account : Account-Sxml]) : String
@@ -288,22 +259,22 @@
 (module+ test
   (check-equal?
    (account-type
-    '(http://www.gnucash.org/XML/gnc:account
+    '(gnc:account
       (@ (version "2.0.0"))
-      (http://www.gnucash.org/XML/act:name "Academic")
-      (http://www.gnucash.org/XML/act:id (@ (type "guid")) "0da16f582300ada60adae89f9d275d88")
-      (http://www.gnucash.org/XML/act:type "EXPENSE")
-      (http://www.gnucash.org/XML/act:commodity
-       (http://www.gnucash.org/XML/cmdty:space "ISO4217")
+      (act:name "Academic")
+      (act:id (@ (type "guid")) "0da16f582300ada60adae89f9d275d88")
+      (act:type "EXPENSE")
+      (act:commodity
+       (cmdty:space "ISO4217")
        
-       (http://www.gnucash.org/XML/cmdty:id "USD"))
-      (http://www.gnucash.org/XML/act:commodity-scu "100")
-      (http://www.gnucash.org/XML/act:parent (@ (type "guid")) "ab7ccf91bac526bb8effe6009b97fdfe")))
+       (cmdty:id "USD"))
+      (act:commodity-scu "100")
+      (act:parent (@ (type "guid")) "ab7ccf91bac526bb8effe6009b97fdfe")))
    "EXPENSE"))
 
 ;; returns all the splits of the transaction
-(define (all-splits [transaction : Gnucash-Element]) : Splitlist
-  (let* ([splits (sxml:content (transaction-splits transaction))]
+(define (transaction-splits [transaction : Gnucash-Element]) : Splitlist
+  (let* ([splits (sxml:content (transaction-split-xmls transaction))]
          [date (transaction-date transaction)])
     (map (lambda ([split : Sxml])
            (list (date->time-utc date) (assert split gnucash-element?)))
@@ -391,12 +362,12 @@
 ;; return the id of an account
 (: account-id (Sxml -> Sxml))
 (define (account-id account)
-  (find-tag/1 account (list account-id-tag)))
+  (find-tag/1 account '(act:id)))
   
 ;; return the splits of a transaction
-(: transaction-splits (Sxml -> (Listof Sxml)))
-(define (transaction-splits t)
-  (sxml:content (find-tag t (list splits-tag))))
+(: transaction-split-xmls (Sxml -> (Listof Sxml)))
+(define (transaction-split-xmls t)
+  (sxml:content (find-tag t '(trn:splits))))
 
 ;; return the currency of a transaction
 (: transaction-currency (Sxml -> Sxml))
