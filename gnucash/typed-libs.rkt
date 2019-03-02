@@ -43,21 +43,6 @@
          account-sxml?
          transaction-sxml?
          
-         book-id-tag
-         count-data-tag
-         commodity-tag
-         pricedb-tag
-         account-tag
-         transaction-tag
-         date-tag
-         date-posted-tag
-         account-name-tag
-         account-parent-tag
-         account-id-tag
-         transaction-currency-tag
-         splits-tag
-         split-account-tag
-         split-value-tag
          dollars
          oo
          oo/fail
@@ -98,26 +83,6 @@
 (define-type Gnucash-Element-Type
   (U 'book:id 'count:data 'gnc:pricedb 'gnc:commodity 'gnc:account 'gnc:transaction))
 
-
-;; now that we're using abbreviations these are all silly:
-(define book-id-tag 'book:id)
-(define count-data-tag 'gnc:count-data)
-(define commodity-tag 'gnc:commodity)
-(define pricedb-tag 'gnc:pricedb)
-(define account-tag 'gnc:account)
-(define transaction-tag 'gnc:transaction)
-
-(define date-tag 'ts:date)
-(define date-posted-tag 'trn:date-posted)
-(define account-name-tag 'act:name)
-(define account-parent-tag 'act:parent)
-(define account-id-tag 'act:id)
-(define account-type-tag 'act:type)
-(define transaction-currency-tag 'trn:currency)
-(define splits-tag 'trn:splits)
-(define split-account-tag 'split:account)
-(define split-value-tag 'split:value)
-
 (define dollars
   `(trn:currency
     (cmdty:space "ISO4217")
@@ -126,12 +91,12 @@
 ;; given a list of gnucash sxml things, return the transactions:
 (define (parsed->transactions [elts : (Listof Gnucash-Element)])
   : (Listof Transaction-Sxml)
-  (assert (tag-filter transaction-tag elts) transaction-sxml-list?))
+  (assert (tag-filter 'gnc:transaction elts) transaction-sxml-list?))
 
 ;; given a list of gnucash sxml things, return the accounts:
 (define (parsed->accounts [elts : (Listof Gnucash-Element)])
   : (Listof Account-Sxml)
-  (assert (tag-filter account-tag elts) account-sxml-list?))
+  (assert (tag-filter 'gnc:account elts) account-sxml-list?))
 
 
 ;; organize a list of date-and-splits by account
@@ -241,7 +206,7 @@
 ;; return the parent of an account, or #f if it has none
 (define (account-parent [account : Account-Sxml]) : (U False String)
   (define maybe-parent-field
-    (oof ((sxpath (list account-parent-tag)) account)))
+    (oof ((sxpath (list 'act:parent)) account)))
   (cond [(not maybe-parent-field) #f]
         [else
          (match (oo/fail (sxml:content maybe-parent-field)
@@ -253,7 +218,7 @@
 
 (define (account-type [account : Account-Sxml]) : String
   (assert (oo (sxml:content
-               (oo ((sxpath (list account-type-tag)) account))))
+               (oo ((sxpath (list 'act:type)) account))))
           string?))
 
 (module+ test
@@ -344,7 +309,7 @@
 (define (transaction-date transaction) 
   (string->date
    (ensure-string
-    (find-tag/1 transaction (list date-posted-tag date-tag)))
+    (find-tag/1 transaction (list 'trn:date-posted 'ts:date)))
    "~Y-~m-~d ~H:~M:~S ~z"))
 
 (: ensure-string (Any -> String))
@@ -357,7 +322,7 @@
 ;; given an account, return its name
 (: account-name (Sxml -> String))
 (define (account-name account)
-  (ensure-string (oo (sxml:content (find-tag account (list account-name-tag))))))
+  (ensure-string (oo (sxml:content (find-tag account (list 'act:name))))))
 
 ;; return the id of an account
 (: account-id (Sxml -> Sxml))
@@ -372,16 +337,16 @@
 ;; return the currency of a transaction
 (: transaction-currency (Sxml -> Sxml))
 (define (transaction-currency t)
-  (find-tag t (list transaction-currency-tag)))
+  (find-tag t (list 'tr:currency)))
 
 (: split-account (Gnucash-Element -> String))
 (define (split-account s)
-  (assert (find-tag/1 s (list split-account-tag))
+  (assert (find-tag/1 s (list 'split:account))
           string?))
 
 (define (split-value [s : Gnucash-Element]) : Real
   (assert (string->number
-           (assert (find-tag/1 s (list split-value-tag))
+           (assert (find-tag/1 s (list 'split:value))
                    string?))
           real?))
 
