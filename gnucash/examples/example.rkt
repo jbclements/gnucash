@@ -19,7 +19,7 @@
   (time (gnucash-read gnucash-file-source gnucash-zo-file)))
 
 ;; can do they have expected type tags?
-(define _1 (group-by gnucash-element-type gnucash-data))
+(define _1 (group-by first gnucash-data))
 
 ;(init-libs gnucash-data)
 (define accounts (parsed->accounts gnucash-data))
@@ -55,7 +55,7 @@
                 (curryr id->account accounts)
                 split-account
                 second)
-       (all-splits (first transactions))))
+       (transaction-splits (first transactions))))
 
 (module+ test
   
@@ -68,7 +68,7 @@
 
   ;; regression test:
   (check-equal?
-   (take (apply append (map all-splits transactions))
+   (take (apply append (map transaction-splits transactions))
          6)
    (list
     (list
@@ -123,7 +123,7 @@
 
   ;; regression:
   (check-equal?
-   (list->set (group-by-account (all-splits (first transactions))))
+   (list->set (group-by-account (transaction-splits (first transactions))))
    (set
     (list
      "679a80e5250a3d31670f64d8224d7a88"
