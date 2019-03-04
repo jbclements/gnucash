@@ -6,15 +6,14 @@
          "typed-libs.rkt"
          racket/contract)
   
-;; an account is an sxml datum. It looks like this. Ooh, I'd forgotten
-;; how much I hated XML...
-#;'(http://www.gnucash.org/XML/gnc:account
+;; an account is an sxml datum. It looks like this.
+#;'(gnc:account
   (@ (version "2.0.0"))
-  (http://www.gnucash.org/XML/act:name "Root Account")
-  (http://www.gnucash.org/XML/act:id
+  (act:name "Root Account")
+  (act:id
    (@ (type "guid"))
    "ab7ccf91bac526bb8effe6009b97fdfe")
-  (http://www.gnucash.org/XML/act:type "ROOT"))
+  (act:type "ROOT"))
 ;; an account has a version attribute, and these elements:
 ;; - name (string)
 ;; - id (attribute type) (string)
@@ -49,58 +48,12 @@
 
 
   
-
-
-  
-
-;; date date -> (transaction -> boolean)
-(define (make-date-filter start end)
-  (lambda (transaction)
-    (let ([ttime (date->time-utc (transaction-date transaction))]
-          [stime (date->time-utc start)]
-          [etime (date->time-utc end)])
-      (and (time<=? stime ttime)
-           (time<? ttime etime)))))
-  
-
-(define (make-year-filter year)
-  (make-date-filter (srfi:make-date 0 0 0 0 1 1 year 0)
-                    (srfi:make-date 0 0 0 0 1 1 (+ year 1) 0)))
-
-;; given a year and the set of all transactions
-(define (year->transactions year transactions)
-  (filter (make-year-filter year) transactions))
-  
-;; find all transactions where at least one split is in the list of 
-;; account ids and one split is outside the list.
-(define (crossers transactions account-ids)
-  (filter (lambda (transaction)
-            (let ([split-account-ids (map split-account (sxml:content (transaction-splits transaction)))])
-              (and (ormap (lambda (id) (member id account-ids))
-                          split-account-ids)
-                   (ormap (lambda (id) (not (member id account-ids)))
-                          split-account-ids))))
-          transactions))
-  
-  ;; compute the net of the transaction w.r.t. the given accounts.
-  (define (net transaction acct-ids currency)
-    (unless (equal? (transaction-currency transaction) currency)
-      (error 'net "transaction has wrong currency; expected ~v, got ~v" currency (transaction-currency transaction)))
-    (let ([splits (sxml:content (transaction-splits transaction))])
-      (foldl + 0 (map split-value (filter (lambda (s) (not (member (split-account s) acct-ids))) splits)))))
-  
-  ;; returns the splits of the transaction that do not involve the given accounts
-  (define (external-splits transaction account-ids)
-    (let* ([splits (sxml:content (transaction-splits transaction))]
-           [date (transaction-date transaction)]
-           [externals (filter (lambda (s) (not (member (split-account s) account-ids))) splits)])
-      (map (lambda (split) (list (date->time-utc date) split)) externals)))
   
   (define (print-transaction t)
     (printf "~a\n" (date->string (transaction-date t)))
     (unless (equal? (transaction-currency t) dollars)
       (printf "NON-DOLLAR TRANSACTION\n"))
-    (for-each print-split (transaction-splits t)))
+    (for-each print-split (transaction-split-xmls t)))
   
   (define (print-split s)
     (printf "~v : ~v\n" (account-name-path (id->account (split-account s))) (split-value s)))
@@ -170,6 +123,8 @@
 ;; i think this could be replaced by ~r...
 (define (digfmt n)
   (/ (* n 100) 100.0))
+
+
 
 
   
