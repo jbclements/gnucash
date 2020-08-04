@@ -28,6 +28,7 @@
 
 ;; a dataset has an account and an association list mapping times to amounts
 ;; "Dataset" is a REALLY TERRIBLE NAME for this.
+(define-type Account-Deltas Dataset)
 (define-type Dataset (List Account-Sxml (Listof (List time Real))))
 
 (define-type Transaction (Pairof 'gnc:transaction (Listof Sxml)))
@@ -74,7 +75,9 @@
          year->transactions
          crossers
          net
-         external-splits)
+         external-splits
+
+         Account-Deltas)
 
 
 
