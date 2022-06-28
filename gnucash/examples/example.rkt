@@ -118,8 +118,7 @@
        (split:reconciled-state "n")
        (split:value "-20000/100")
        (split:quantity "-20000/100")
-       (split:account (@ (type "guid")) "ae3cb692a4101e744f4ff021896178a8"))))
-   16)
+       (split:account (@ (type "guid")) "ae3cb692a4101e744f4ff021896178a8")))))
 
   ;; regression:
   (check-equal?
